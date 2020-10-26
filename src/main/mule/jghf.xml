@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	
+		<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="d7d96000-2e3f-4b25-b315-da2d7c3143bb" >
+		<http:listener-connection host="0.0.0.0" port="8088" />
+	</http:listener-config>
+	
+	<http:request-config name="HTTP_Request_configuration_Box" doc:name="HTTP Request configuration" doc:id="565856e3-9b4c-42fe-a185-3f6b27387856" >
+		<http:request-connection protocol="HTTPS" host="api.box.com" />
+	</http:request-config>
+    
+	<http:request-config name="HTTP_Request_configuration_Notification" doc:name="HTTP Request configuration" doc:id="55563103-e79f-41e6-8ef3-36e29f9dede5" >
+		<http:request-connection protocol="HTTPS" host="notification-system-api-v1-qa.au-s1.cloudhub.io" port="443" >
+			<http:authentication >
+				<http:basic-authentication username="6ea501070f524d9ea80829ffc594caf1" password="0993865d39494529b544697C461a99e1" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="83fb3e5e-7d99-4249-8a3a-079955660fda" >
+		<sftp:connection host="snsw-dev.wfm.poit.com" username="snsw_wfm_dev" password="qu_hc0tdTQ" />
+	</sftp:config>
+	
+	</mule>

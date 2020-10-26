@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:sap="http://www.mulesoft.org/schema/mule/sap"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd 
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/sap http://www.mulesoft.org/schema/mule/sap/current/mule-sap.xsd">
+
+	<flow name="getboxtokenFlow_clientcredentails" doc:id="e362a412-6ff4-452c-af99-bca811f54afd" >
+		<ee:transform doc:name="Transform Message" doc:id="e599cefa-0c25-4de3-b316-b1c6d9cf7d0e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{
+	"grant_type" : "client_credentials",
+	"client_id" : "gxc89tc6eeo4uzzoe5svhbjh3d4057x1",
+	"client_secret" : "jelqvwtR1MJNb8RlGkZAf61rVToBIwtv"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request method="POST" doc:name="Request" doc:id="942a88c3-648e-4893-9d37-c534aaab40cb" config-ref="HTTP_Request_configuration_Box" path="/oauth2/token/"/>
+		<set-payload value="#[payload]" doc:name="Set Payload" doc:id="8bfe27d7-508d-462c-bf78-2c738c89921c" />
+		<logger level="INFO" doc:name="Logger" doc:id="0484ee81-149a-4e62-9914-3874fbc4d66f" message="#[payload]"/>
+	</flow>
+	
+	<flow name="boxshield_pocFlow" doc:id="a910b9ab-0c79-4a81-9bb7-6abf82358bee" >
+		<logger level="INFO" doc:name="Logger" doc:id="d36bdda0-d876-47f1-ab44-184da774d471" message="#[payload]"/>
+		
+		<flow-ref doc:name="getboxtokenFlow_clientcredentails" doc:id="d7fe4ad2-f649-4e9d-a46a-d9a90777a586" name="getboxtokenFlow_clientcredentails" target="access_token" targetValue="#[payload.access_token]"/>
+		<set-variable value="#['Bearer ' ++ 'xkcKBZ7GgqulBb6AHqNsIdA1Cuv2VbSs']" doc:name="Set Variable" doc:id="af591aea-97b9-43cb-839f-4db057bab77d" variableName="header_token"/>
+		<logger level="INFO" doc:name="header_token" doc:id="d71d6b97-67b4-48a5-ab38-bcc5961d8391" message="#[vars.header_token]"/>
+		<set-variable value="SHIELD_ALERT" doc:name="eventType" doc:id="2f0b2f80-3d42-4873-9fa8-91269e9828d2" variableName="eventType"/>
+		<set-variable value="all" doc:name="stream_type" doc:id="3c7aeb7b-456c-4a3e-b5d5-4facfcbc6f6d" variableName="stream_type"/>
+		<http:request method="GET" doc:name="Request" doc:id="6618191e-adf0-4b35-a5c2-48d6fc37cee8" config-ref="HTTP_Request_configuration_Box" path="/2.0/events?" sendCorrelationId="ALWAYS" outputMimeType="application/json">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	'Authorization' : vars.header_token
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="440cbe48-8265-443e-9d2d-e3f5afe21da8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+    
+ payload.entries map (item, index) -> {
+    	
+    "details" : if(item.additional_details.shield_alert.rule_name == 'malicious_content') ({
+    	
+    	user : item.additional_details.shield_alert.user.email,
+    	created_date : item.additional_details.shield_alert.created_at,
+    	file_name : item.additional_details.shield_alert.alert_summary.malware_info.file_info.name,
+    	file_id : item.additional_details.shield_alert.alert_summary.malware_info.file_info.id
+    	
+    	
+    }) else {}
+    	
+    
+
+
+ }]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="0cfaeeae-a94a-49a2-9881-2eb767fda433" >
+			<when expression="#[sizeOf(payload) &gt; 0]">
+				<foreach doc:name="For Each" doc:id="3b73ae6d-2851-469b-86f3-000c2e7455ca" collection="payload.details">
+			<logger level="INFO" doc:name="Logger" doc:id="3e8d9b2b-6ad3-45aa-9bc5-072843f4a3bf" message="#[payload]" />
+			<ee:transform doc:name="Transform Message" doc:id="f8f9cd46-37e3-476e-8a77-c69a6758e55d">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::core::Binaries
+output application/json
+---
+{
+	to: "sudeepthi.kanumuri@finance.nsw.gov.au",
+	from: "sudeepthi.kanumuri@finance.nsw.gov.au",
+	body: "Malicious file detected " ++ payload.file_name ++ "File ID " ++ payload.file_id,
+	subject: "Malicious file detected " ++ payload.file_name ++ "File ID " ++ payload.file_id,
+	applicationName : "Box Shield"
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<http:request method="POST" doc:name="Request" doc:id="96b99290-ebb1-4e87-8655-2eb935d7c48f" config-ref="HTTP_Request_configuration_Notification" path="/notification/async">
+				<http:headers><![CDATA[#[output application/java
+---
+{
+	"client_secret" : "0993865d39494529b544697C461a99e1",
+	"client_id" : "6ea501070f524d9ea80829ffc594caf1"
+}]]]></http:headers>
+			</http:request>
+			<logger level="INFO" doc:name="Logger" doc:id="173e9d66-fe60-443c-ae4b-11efd8394aec" message="#[payload]" />
+		</foreach>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="159db348-7d1e-4365-ba77-fa7b349985f9" message="No malicious_content"/>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="boxshield_pocFlow1" doc:id="9f93f5aa-2e68-4a29-b87c-e6a5f4efee65" >
+		<sftp:listener doc:name="On New or Updated File" doc:id="ede5594f-f765-4b7c-a761-8740cb8f4af0" config-ref="SFTP_Config" directory="/inbound/empmaster">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+			<sftp:matcher filenamePattern="*.json"/>
+		</sftp:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="d70fc992-9577-427e-ad51-879a55be80c3" message="#[payload]"/>
+	</flow>
+</mule>
